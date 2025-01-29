@@ -28,9 +28,9 @@ foreach( demosourcefile ${DEMO_SOURCES} )
         C_STANDARD 11 )
     if ( BUILD_SHARED_LIBS )
         target_link_libraries( ${demoname}
-            LAGraphX LAGraph lagraphtest lagraphxtest GraphBLAS::GraphBLAS )
+            LAGraphX LAGraph lagraphtest lagraphxtest GraphBLAS::GraphBLAS m )
     else ( )
         target_link_libraries( ${demoname}
-            LAGraphX_static LAGraph_static lagraphtest_static lagraphxtest_static GraphBLAS::GraphBLAS )
+            LAGraphX_static LAGraph_static lagraphtest_static lagraphxtest_static GraphBLAS::GraphBLAS m )
     endif ( )
 endforeach( demosourcefile ${DEMO_SOURCES} )
