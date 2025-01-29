@@ -1,3 +1,9 @@
+# Generated file
+*.csv
+
+# VS Code
+.vscode/
+
 # Ignore these files:
 *.o
 *.so.*
@@ -14,17 +20,17 @@
 gmon.out
 *.bak
 *.d
-*.gcda 
-*.gcno 
-*.aux 
-*.bbl 
-*.blg 
-*.log 
-*.toc 
-*.dvi 
-*.lof 
+*.gcda
+*.gcno
+*.aux
+*.bbl
+*.blg
+*.log
+*.toc
+*.dvi
+*.lof
 *.lot
-*.dll 
+*.dll
 *.dSYM
 *.out
 *.gcda
@@ -47,4 +53,3 @@ CMakeFiles*
 
 # Do not ignore this file
 !.gitignore
-
