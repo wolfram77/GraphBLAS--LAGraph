@@ -3,10 +3,13 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 
-const RGRAPH = /^Running cuGraph Louvain on \s*.*\/(.*?)\.mtx\.csv/m;
-const RORDER = /^order: (.+?) size: (.+) \[directed\] \{\}/m;
-const RMODUL = /^Louvain modularity: (.+)/m;
-const RTTIME = /^Louvain took: (.+?) s/m;
+const RGRAPH = /^Reading matrix market file:\s*.*\/(.*?)\.mtx/m;
+const RTREAD = /^Time to read the graph: (.+?) ms/m;
+const RORDER = /^\s*adjacency matrix: \w+ matrix: (\d+)-by-(\d+) entries: (\d+)/m;
+const RBATCH = /^Batch fraction: (.+?) \[(.+?) edges\]/m;
+const RCLONE = /^Time to clone the graph: (.+?) ms/m;
+const RDELET = /^Time to delete edges: (.+?) ms/m;
+const RINSER = /^Time to insert edges: (.+?) ms/m;
 
 
 
@@ -53,22 +56,46 @@ function readLogLine(ln, data, state) {
     state.graph = graph;
     state.order = 0;
     state.size  = 0;
-    state.time  = 0;
-    state.modularity  = 0;
+    state.read_time      = 0;
+    state.create_time    = 0;
+    state.batch_fraction = 0;
+    state.batch_edges    = 0;
+    state.time      = 0;
+    state.technique = '';
+  }
+  else if (RTREAD.test(ln)) {
+    var [, time]    = RTREAD.exec(ln);
+    state.read_time = parseFloat(time);
   }
   else if (RORDER.test(ln)) {
-    var [, order, size] = RORDER.exec(ln);
-    state.order = parseFloat(order);
-    state.size  = parseFloat(size);
+    var [, rows,, entries] = RORDER.exec(ln);
+    state.order = parseFloat(rows);
+    state.size  = parseFloat(entries);
   }
-  else if (RMODUL.test(ln)) {
-    var [, modularity] = RMODUL.exec(ln);
-    state.modularity = parseFloat(modularity);
+  else if (RBATCH.test(ln)) {
+    var [, fraction, edges] = RBATCH.exec(ln);
+    state.batch_fraction = parseFloat(fraction);
+    state.batch_edges    = parseFloat(edges);
   }
-  else if (RTTIME.test(ln)) {
-    var [, time] = RTTIME.exec(ln);
+  else if (RCLONE.test(ln)) {
+    var [, time] = RCLONE.exec(ln);
     data.get(state.graph).push(Object.assign({}, state, {
-      time: parseFloat(time) * 1000,
+      time: parseFloat(time),
+      technique: 'cloneGraph',
+    }));
+  }
+  else if (RDELET.test(ln)) {
+    var [, time] = RDELET.exec(ln);
+    data.get(state.graph).push(Object.assign({}, state, {
+      time: parseFloat(time),
+      technique: 'deleteEdges',
+    }));
+  }
+  else if (RINSER.test(ln)) {
+    var [, time] = RINSER.exec(ln);
+    data.get(state.graph).push(Object.assign({}, state, {
+      time: parseFloat(time),
+      technique: 'insertEdges',
     }));
   }
   return state;
