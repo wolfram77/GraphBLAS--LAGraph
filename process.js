@@ -4,12 +4,14 @@ const path = require('path');
 const readline = require('readline');
 
 const RGRAPH = /^Reading matrix market file:\s*.*\/(.*?)\.mtx/m;
-const RTREAD = /^Time to read the graph: (.+?) ms/m;
 const RORDER = /^\s*adjacency matrix: \w+ matrix: (\d+)-by-(\d+) entries: (\d+)/m;
+const RTREAD = /^Time to read the graph: (.+?) ms/m;
+const RTRANS = /^Time to transpose the graph: (.+?) ms/m;
 const RBATCH = /^Batch fraction: (.+?) \[(.+?) edges\]/m;
 const RCLONE = /^Time to clone the graph: (.+?) ms/m;
 const RDELET = /^Time to delete edges: (.+?) ms/m;
 const RINSER = /^Time to insert edges: (.+?) ms/m;
+const RVISIT = /^Time to count visits with BFS: (.+?) ms/m;
 
 
 
@@ -56,16 +58,10 @@ function readLogLine(ln, data, state) {
     state.graph = graph;
     state.order = 0;
     state.size  = 0;
-    state.read_time      = 0;
-    state.create_time    = 0;
     state.batch_fraction = 0;
     state.batch_edges    = 0;
     state.time      = 0;
     state.technique = '';
-  }
-  else if (RTREAD.test(ln)) {
-    var [, time]    = RTREAD.exec(ln);
-    state.read_time = parseFloat(time);
   }
   else if (RORDER.test(ln)) {
     var [, rows,, entries] = RORDER.exec(ln);
@@ -76,6 +72,24 @@ function readLogLine(ln, data, state) {
     var [, fraction, edges] = RBATCH.exec(ln);
     state.batch_fraction = parseFloat(fraction);
     state.batch_edges    = parseFloat(edges);
+  }
+  else if (RTREAD.test(ln)) {
+    var [, time] = RTREAD.exec(ln);
+    data.get(state.graph).push(Object.assign({}, state, {
+      batch_fraction: 0,
+      batch_edges:    0,
+      time: parseFloat(time),
+      technique: 'readGraph',
+    }));
+  }
+  else if (RTRANS.test(ln)) {
+    var [, time] = RTRANS.exec(ln);
+    data.get(state.graph).push(Object.assign({}, state, {
+      batch_fraction: 0,
+      batch_edges:    0,
+      time: parseFloat(time),
+      technique: 'transposeGraph',
+    }));
   }
   else if (RCLONE.test(ln)) {
     var [, time] = RCLONE.exec(ln);
@@ -96,6 +110,15 @@ function readLogLine(ln, data, state) {
     data.get(state.graph).push(Object.assign({}, state, {
       time: parseFloat(time),
       technique: 'insertEdges',
+    }));
+  }
+  else if (RVISIT.test(ln)) {
+    var last = data.get(state.graph).slice(-1)[0];
+    var technique = last.technique==='deleteEdges'? 'visitGraph-' : 'visitGraph+';
+    var [, time] = RVISIT.exec(ln);
+    data.get(state.graph).push(Object.assign({}, state, {
+      time: parseFloat(time),
+      technique,
     }));
   }
   return state;

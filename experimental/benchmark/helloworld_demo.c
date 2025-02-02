@@ -173,6 +173,59 @@ int generate_edge_insertions(Edge *insertions, LAGraph_Graph G, GrB_Index batch_
 
 
 
+// Test graph transpose.
+void test_graph_transpose(LAGraph_Graph G) {
+    GrB_Matrix C;
+    GrB_Index rows, cols, vals;
+    LAGraph_Graph H = NULL;
+    OK( GrB_Matrix_nrows(&rows, G->A) );
+    OK( GrB_Matrix_ncols(&cols, G->A) );
+    printf("Transposing graph ...\n");
+    double t = LAGraph_WallClockTime();
+    OK( GrB_Matrix_new(&C, GrB_BOOL, rows, cols) );
+    OK( GrB_transpose(C, NULL, NULL, G->A, NULL) );
+    LAGraph_New(&H, &C, G->kind, NULL);
+    t = LAGraph_WallClockTime() - t;
+    OK( GrB_Matrix_nrows(&rows, H->A) );
+    OK( GrB_Matrix_nvals(&vals, H->A) );
+    printf("Nodes: %ld, Edges: %ld\n", rows, vals);
+    printf("Time to transpose the graph: %.2f ms\n", t * 1000);
+    // OK( GrB_free(&C) );
+    LAGraph_Delete(&H, NULL);
+}
+
+
+
+
+// Test multi-step visit count with BFS, from all vertices.
+void test_visit_count_bfs(LAGraph_Graph G, int steps) {
+    GrB_Index n;
+    GrB_Vector visits0, visits1;
+    uint64_t one = 1;
+    printf("Counting visits with BFS [%d steps] ...\n", steps);
+    OK( GrB_Matrix_nrows(&n, G->A) );
+    OK( GrB_Vector_new(&visits0, GrB_UINT64, n) );
+    OK( GrB_Vector_new(&visits1, GrB_UINT64, n) );
+    OK( GrB_Vector_assign_UINT64(visits0, NULL, NULL, &one, GrB_ALL, n, NULL) );
+    double t = LAGraph_WallClockTime();
+    for (int s=0; s<steps; ++s) {
+        // OK( GrB_Vector_assign_UINT64(visits1, NULL, GrB_PLUS_UINT64, uint64_t(0), GrB_ALL, n, NULL) );
+        OK( GrB_vxm(visits1, GrB_NULL, GrB_NULL, GxB_PLUS_TIMES_UINT64, visits0, G->A, GrB_DESC_T0) );
+        GrB_Vector temp = visits0;
+        visits0 = visits1;
+        visits1 = temp;
+    }
+    uint64_t total = 0;
+    OK( GrB_reduce(&total, GrB_NULL, GxB_PLUS_UINT64_MONOID, visits0, GrB_NULL) );
+    t = LAGraph_WallClockTime() - t;
+    printf("Total visits: %ld\n", total);
+    printf("Time to count visits with BFS: %.2f ms\n", t * 1000);
+    OK( GrB_free(&visits0) );
+    OK( GrB_free(&visits1) );
+}
+
+
+
 
 int main (int argc, char **argv)
 {
@@ -186,6 +239,7 @@ int main (int argc, char **argv)
     GrB_Matrix Y = NULL ;
 
     // start GraphBLAS and LAGraph
+    int steps   = 42;
     bool burble = false ;               // set true for diagnostic outputs
     demo_init (burble) ;
 
@@ -211,19 +265,21 @@ int main (int argc, char **argv)
         false,      // ensure all entries are positive, if true
         argc, argv)) ;  // input to this main program
     t = LAGraph_WallClockTime ( ) - t ;
-    printf ("Time to read the graph: %.2f ms\n", t * 1000) ;
 
     printf ("\n==========================The input graph matrix G:\n") ;
     LG_TRY (LAGraph_Graph_Print (G, LAGraph_SHORT, stdout, msg)) ;
+    GrB_Index n, m;
+    OK( GrB_Matrix_nrows(&n, G->A) );
+    OK( GrB_Matrix_nvals(&m, G->A) );
+    printf("Nodes: %ld, Edges: %ld\n", n, m);
+    printf ("Time to read the graph: %.2f ms\n", t * 1000) ;
+    test_graph_transpose(G);
     printf ("\n") ;
 
     //--------------------------------------------------------------------------
     // Perform batch updates of varying sizes.
     //--------------------------------------------------------------------------
 
-    GrB_Index n, m;
-    OK( GrB_Matrix_nrows(&n, G->A) );
-    OK( GrB_Matrix_nvals(&m, G->A) );
     for (int batch_power=-7; batch_power<=-1; ++batch_power) {
         double batch_fraction = pow(10.0, batch_power);
         GrB_Index batch_size = (GrB_Index) round(batch_fraction * m);
@@ -263,6 +319,7 @@ int main (int argc, char **argv)
                 int status = GrB_Matrix_extractElement_BOOL(&has_edge, H->A, src, dest);
                 LG_ASSERT(status == GrB_NO_VALUE, 1);
             }
+            test_visit_count_bfs(H, steps);
             LAGraph_Delete(&H, msg);
             OK( GrB_free(&X) );
             free(deletions);
@@ -301,6 +358,7 @@ int main (int argc, char **argv)
                 int status = GrB_Matrix_extractElement_BOOL(&has_edge, H->A, src, dest);
                 LG_ASSERT(status == GrB_SUCCESS, 2);
             }
+            test_visit_count_bfs(H, steps);
             LAGraph_Delete(&H, msg);
             OK( GrB_free(&X) );
             free(insertions);

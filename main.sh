@@ -16,16 +16,19 @@ out="$HOME/Logs/$src$1.log"
 ulimit -s unlimited
 printf "" > "$out"
 
-# Download GraphBLAS, LAGraph and install GraphBLAS
-if [[ "$DOWNLOAD" != "0" ]]; then
-  rm -rf GraphBLAS $src
+# If GraphBLAS is not installed, install it
+if [[ "$DOWNLOAD" != "0" ]] && [[ ! -d "GraphBLAS" ]]; then
   git clone https://github.com/DrTimothyAldenDavis/GraphBLAS
-  git clone https://github.com/wolfram77/$src
   cd GraphBLAS
   make uninstall
   make JOBS=32
   make install
   cd ..
+fi
+# Download LAGraph
+if [[ "$DOWNLOAD" != "0" ]]; then
+  rm -rf $src
+  git clone https://github.com/wolfram77/$src
   cd $src
 fi
 
